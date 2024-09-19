@@ -136,37 +136,55 @@ analyze_netstat_ports() {
 analyze_docker_ports() {
   echo -e "${BLUE}INFO: Analyse des ports exposés par Docker...${NC}"
   if command -v docker &> /dev/null; then
-    docker_ports=$(docker ps --format "{{.Names}}: {{.Ports}}")
+    container_ids=$(docker ps -q)
     
-    if [[ -z "$docker_ports" ]]; then
-      echo -e "${RED}ERREUR: Aucun conteneur Docker trouvé ou aucun port exposé.${NC}"
+    if [[ -z "$container_ids" ]]; then
+      echo -e "${RED}ERREUR: Aucun conteneur Docker trouvé.${NC}"
+      return
     fi
 
-    while IFS= read -r line; do
-      container_name=$(echo "$line" | awk -F: '{print $1}')
-      container_ports=$(echo "$line" | awk -F': ' '{print $2}')
+    for container_id in $container_ids; do
+      container_name=$(docker inspect --format '{{.Name}}' "$container_id" | sed 's/\///')
+      port_mappings=$(docker port "$container_id")
       
-      # Extraire les ports et les adresses IP associées
-      echo "$container_ports" | tr ',' '\n' | while IFS= read -r port_mapping; do
-        ip=$(echo "$port_mapping" | grep -oE "([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+|::|localhost)")
-        port=$(echo "$port_mapping" | grep -oE "[0-9]+")
+      if [[ -z "$port_mappings" ]]; then
+        echo -e "${YELLOW}AVERTISSEMENT: Aucun port exposé pour le conteneur $container_name.${NC}"
+        continue
+      fi
 
-        if [[ -z "$ip" || -z "$port" ]]; then
-          echo -e "${RED}ERREUR: IP ou port non trouvés pour le conteneur: $container_name${NC}"
-        fi
+      #echo -e "${GREEN}Ports exposés pour le conteneur $container_name:${NC}"
+
+      while IFS= read -r mapping; do
+        container_port=$(echo "$mapping" | awk '{print $1}' | cut -d'/' -f1)
+        protocol=$(echo "$mapping" | awk '{print $1}' | cut -d'/' -f2)
+        host_binding=$(echo "$mapping" | awk '{print $3}')
         
-        # Gestion des adresses Docker IPv4 et IPv6
-        if [[ "$ip" == "127.0.0.1" || "$ip" == "localhost" ]]; then
-          ipv4_loopback_ports+=("Docker: $container_name - Port: $port_mapping")
-        elif [[ "$ip" == "0.0.0.0" || "$ip" == "::" ]]; then
-          ipv4_external_ports+=("Docker: $container_name - Port: $port_mapping")
-        elif [[ "$ip" == "[::1]" ]]; then
-          ipv6_loopback_ports+=("Docker: $container_name - Port: $port_mapping")
-        elif [[ "$ip" == "[::]" ]]; then
-          ipv6_external_ports+=("Docker: $container_name - Port: $port_mapping")
+        ip=$(echo "$host_binding" | cut -d':' -f1)
+        if [[ "$ip" == "[" ]]; then
+          ip=$(echo "$host_binding" | cut -d':' -f1,2,3)
         fi
-      done
-    done <<< "$docker_ports"
+
+        port=$(echo "$host_binding" | cut -d':' -f2)
+        if [[ -z "$port" ]]; then
+          port=$(echo "$host_binding" | cut -d':' -f4)
+        fi
+
+        #echo -e "  ${CYAN}$ip:$port -> $container_port/$protocol${NC}"
+
+        if [[ "$ip" == "0.0.0.0" ]]; then
+          ipv4_external_ports+=("Docker: $port ($protocol) - Commande: $container_name")
+        elif [[ "$ip" == "127.0.0.1" ]]; then
+          ipv4_loopback_ports+=("Docker: $port ($protocol) - Commande: $container_name")
+        elif [[ "$ip" == "[::]" ]]; then
+          ipv6_external_ports+=("Docker: $port ($protocol) - Commande: $container_name")
+        elif [[ "$ip" == "[::1]" ]]; then
+          ipv6_loopback_ports+=("Docker: $port ($protocol) - Commande: $container_name")
+        else
+          echo -e "${YELLOW}AVERTISSEMENT: Adresse IP non reconnue pour le conteneur $container_name: $ip${NC}"
+        fi
+      done <<< "$port_mappings"
+      echo ""
+    done
   else
     echo -e "${RED}ERREUR: Docker n'est pas installé ou n'est pas accessible.${NC}"
   fi
@@ -193,21 +211,27 @@ display_table() {
   printf "%-10s %-10s %-30s %-20s\n" "PORT" "PROTOCOL" "COMMAND" "IP"
   echo "-----------------------------------------------------------------------"
 
-  # Affichage des résultats du tableau
-  for entry in "${ports_array[@]}"; do
-    # Séparer chaque entrée par ":"
-    port=$(echo "$entry" | awk -F ' ' '{print $2}')  # Extrait le port
-    protocol=$(echo "$entry" | awk -F ' ' '{print $3}')  # Extrait le protocole
-    command=$(echo "$entry" | awk -F'Commande: ' '{print $2}')  # Extrait la commande après 'Commande:'
+  # Parcourir tous les ports possibles
+  # Créer un tableau associatif pour indexer les ports
+  declare -A port_index
 
+  # Indexer les ports
+  for entry in "${ports_array[@]}"; do
+    current_port=$(echo "$entry" | awk '{print $2}')
+    protocol=$(echo "$entry" | awk -F'[()]' '{print $2}')
+    command=$(echo "$entry" | awk -F'Commande: ' '{print $2}')
+    
     # Si des champs sont manquants, on les remplit par "-"
-    port=${port:-"-"}
     protocol=${protocol:-"-"}
     command=${command:-"-"}
-    ip=${fixed_ip}  # IP fixe passée à la fonction
+    
+    port_index[$current_port]="$protocol|$command"
+  done
 
-    # Imprimer chaque ligne avec les colonnes formatées
-    printf "%-10s %-10s %-30s %-20s\n" "$port" "$protocol" "$command" "$ip"
+  # Trier les ports et afficher les résultats
+  for port in $(echo "${!port_index[@]}" | tr ' ' '\n' | sort -n); do
+    IFS='|' read -r protocol command <<< "${port_index[$port]}"
+    printf "%-10s %-10s %-30s %-20s\n" "$port" "$protocol" "$command" "$fixed_ip"
   done
   
   echo ""  # Ligne vide pour la lisibilité
