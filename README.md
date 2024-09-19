@@ -60,3 +60,8 @@ Here's an example of the output you might see when running OpenPorts:
 | 5353 | udp6     | service-m | [::] |
 | 8443 | tcp      | service-n | [::] |
 
+## TODO
+
+[ ] Grab ss / netcat PID and associate PID from ps aux and return command line
+
+
