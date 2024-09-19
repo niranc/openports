@@ -1,6 +1,8 @@
 # OpenPorts
 
-OpenPorts is a Bash script for analyzing and displaying open ports on Linux systems. It uses `ss`, `netstat`, and Docker (if available) to gather comprehensive information about network connections and exposed ports.
+If you're _tired_ of not knowing which ports are open on your machine, local or external; or if you share a remote machine with others and don't know what's _running on it_, this script is for you.
+
+OpenPorts is a Bash script for analyzing and displaying open ports on Linux systems. It uses `ss`, `netstat`, and `docker` (if available) to gather comprehensive information about network connections and exposed ports.
 
 ⚠️ **SECURITY WARNING** ⚠️
 This script requires root privileges to function properly. 
