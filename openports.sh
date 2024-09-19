@@ -95,7 +95,17 @@ analyze_netstat_ports() {
   while IFS= read -r line; do
     protocol=$(echo "$line" | awk '{print $1}')
     port=$(echo "$line" | awk '{print $4}' | awk -F':' '{print $2}'|cut -d":" -f2)
-    pid_info=$(echo "$line" |awk '{print $8,$9}'|cut -d "/" -f2|cut -d " " -f1|cut -d ":" -f1)
+    # Calculer le nombre de champs dans la ligne
+    number=$(echo "$line" | awk '{print NF}')
+    
+    # Déterminer le pid_info en fonction du nombre de champs
+    if [ "$number" -eq 8 ]; then
+      pid_info=$(echo "$line" | awk '{print $8}' | cut -d "/" -f2 | cut -d " " -f1 | cut -d ":" -f1)
+    elif [ "$number" -eq 9 ]; then
+      pid_info=$(echo "$line" | awk '{print $9}' | cut -d "/" -f2 | cut -d " " -f1 | cut -d ":" -f1)
+    else
+      pid_info="Unknown"
+    fi
     
     command=$(echo "$pid_info")
     ipv4_loopback_ports+=("netstat: $port ($protocol) - Commande: $command")
@@ -105,8 +115,16 @@ analyze_netstat_ports() {
   while IFS= read -r line; do
     protocol=$(echo "$line" | awk '{print $1}')
     port=$(echo "$line" | awk '{print $4}' | awk -F':' '{print $2}')
-    pid_info=$(echo "$line" |awk '{print $8,$9}'|cut -d "/" -f2|cut -d " " -f1|cut -d ":" -f1)
+    number=$(echo "$line" | awk '{print NF}')
     
+    # Déterminer le pid_info en fonction du nombre de champs
+    if [ "$number" -eq 8 ]; then
+      pid_info=$(echo "$line" | awk '{print $8}' | cut -d "/" -f2 | cut -d " " -f1 | cut -d ":" -f1)
+    elif [ "$number" -eq 9 ]; then
+      pid_info=$(echo "$line" | awk '{print $9}' | cut -d "/" -f2 | cut -d " " -f1 | cut -d ":" -f1)
+    else
+      pid_info="Unknown"
+    fi    
     command=$(echo "$pid_info")
     ipv4_external_ports+=("netstat: $port ($protocol) - Commande: $command")
   done <<< "$info_ipv4_externe"
@@ -115,8 +133,16 @@ analyze_netstat_ports() {
   while IFS= read -r line; do
     protocol=$(echo "$line" | awk '{print $1}')
     port=$(echo "$line" | awk '{print $4}' | awk -F':' '{print $4}')
-    pid_info=$(echo "$line" |awk '{print $8,$9}'|cut -d "/" -f2|cut -d " " -f1|cut -d ":" -f1)
+    number=$(echo "$line" | awk '{print NF}')
     
+    # Déterminer le pid_info en fonction du nombre de champs
+    if [ "$number" -eq 8 ]; then
+      pid_info=$(echo "$line" | awk '{print $8}' | cut -d "/" -f2 | cut -d " " -f1 | cut -d ":" -f1)
+    elif [ "$number" -eq 9 ]; then
+      pid_info=$(echo "$line" | awk '{print $9}' | cut -d "/" -f2 | cut -d " " -f1 | cut -d ":" -f1)
+    else
+      pid_info="Unknown"
+    fi    
     command=$(echo "$pid_info")
     ipv6_loopback_ports+=("netstat: $port ($protocol) - Commande: $command")
   done <<< "$info_ipv6_local"
@@ -125,8 +151,16 @@ analyze_netstat_ports() {
   while IFS= read -r line; do
     protocol=$(echo "$line" | awk '{print $1}')
     port=$(echo "$line" | awk '{print $4}' | awk -F':' '{print $4}')
-    pid_info=$(echo "$line" | awk '{print $8,$9}'|cut -d "/" -f2|cut -d " " -f1|cut -d ":" -f1)
+    number=$(echo "$line" | awk '{print NF}')
     
+    # Déterminer le pid_info en fonction du nombre de champs
+    if [ "$number" -eq 8 ]; then
+      pid_info=$(echo "$line" | awk '{print $8}' | cut -d "/" -f2 | cut -d " " -f1 | cut -d ":" -f1)
+    elif [ "$number" -eq 9 ]; then
+      pid_info=$(echo "$line" | awk '{print $9}' | cut -d "/" -f2 | cut -d " " -f1 | cut -d ":" -f1)
+    else
+      pid_info="Unknown"
+    fi    
     command=$(echo "$pid_info")
     ipv6_external_ports+=("netstat: $port ($protocol) - Commande: $command")
   done <<< "$info_ipv6_externe"
