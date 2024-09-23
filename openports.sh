@@ -43,10 +43,24 @@ analyze_ss_ports() {
     # Si le port est nul, essayons une autre extraction
     if [[ -z "$port" ]]; then
       port=$(echo "$address" | awk -F':' '{print $4}')
+      # If port is still null, try another extraction
+      if [[ -z "$port" || "$port" == "127.0.0.1]" ]]; then
+        port=$(echo "$address" | awk -F':' '{print $5}')
+      fi
+    fi
+    # Gestion des adresses IP (IPv6 uniquement)
+    # Gestion du cas où l'IP est "*"
+    if [[ "$ip" == "*" ]]; then
+        ip="0.0.0.0"
     fi
 
-    # Gestion des adresses IP (IPv6 uniquement)
     if [[ "$ip" =~ ^\[ ]]; then
+      ipv6_part=$(echo "$address" | awk -F':' '{print $1":"$2":"$3":"$4}')
+      if [[ "$ipv6_part" == "[::ffff:127.0.0.1]" ]]; then
+        ip="[::1]"
+      elif [[ "$ipv6_part" == "[::ffff:0.0.0.0]" ]]; then
+        ip="[::]"
+      fi
       ipv6_part=$(echo "$address" | awk -F':' '{print $3}' | cut -d"]" -f1)
       if [[ "$ipv6_part" == "1" ]]; then
         ip="[::1]"
@@ -54,6 +68,8 @@ analyze_ss_ports() {
         ip="[::]"
       fi
     fi
+
+    echo "Port: $port, IP: $ip, Service: $service, Command: $command"
 
     # Afficher les erreurs si des informations sont manquantes
     if [[ -z "$port" || -z "$ip" ]]; then
@@ -89,7 +105,7 @@ analyze_netstat_ports() {
   info_ipv4_local=$(echo "$output" | grep "127.0.0" | awk '$4 ~ /127.0.0/')
   info_ipv4_externe=$(echo "$output" | grep "0.0.0.0" | awk '$4 ~ /0.0.0.0/')
   info_ipv6_local=$(echo "$output" | grep "::1:" | awk '$4 ~ /::1/')
-  info_ipv6_externe=$(echo "$output" | grep ":::")
+  info_ipv6_externe=$(echo "$output" | grep ":::" | awk '$4 ~ /:::/' )
 
   # Analyser les adresses IPv4 locales
   while IFS= read -r line; do
@@ -109,6 +125,7 @@ analyze_netstat_ports() {
     
     command=$(echo "$pid_info")
     ipv4_loopback_ports+=("netstat: $port ($protocol) - Commande: $command")
+    echo "Port: $port, IP: $ip, Service: $service, Command: $command"
   done <<< "$info_ipv4_local"
 
   # Analyser les adresses IPv4 externes
@@ -127,6 +144,7 @@ analyze_netstat_ports() {
     fi    
     command=$(echo "$pid_info")
     ipv4_external_ports+=("netstat: $port ($protocol) - Commande: $command")
+    echo "Port: $port, IP: $ip, Service: $service, Command: $command"
   done <<< "$info_ipv4_externe"
 
   # Analyser les adresses IPv6 locales
@@ -145,6 +163,7 @@ analyze_netstat_ports() {
     fi    
     command=$(echo "$pid_info")
     ipv6_loopback_ports+=("netstat: $port ($protocol) - Commande: $command")
+    echo "Port: $port, IP: $ip, Service: $service, Command: $command"
   done <<< "$info_ipv6_local"
 
   # Analyser les adresses IPv6 externes
@@ -163,6 +182,7 @@ analyze_netstat_ports() {
     fi    
     command=$(echo "$pid_info")
     ipv6_external_ports+=("netstat: $port ($protocol) - Commande: $command")
+    echo "Port: $port, IP: $ip, Service: $service, Command: $command"
   done <<< "$info_ipv6_externe"
 }
 
